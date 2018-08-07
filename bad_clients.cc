@@ -6,6 +6,8 @@
 #include <iostream>
 #include "common.hh"
 
+// TO DO: error callback2?
+
 // TO DO1: async Boost.Asio based on corutines OR boost asio (blocking) + Executor proposal?
 // TO DO2: run_asio_client may be simplified by buffer removal
 
@@ -32,7 +34,7 @@ static auto run_asio_client() {
         std::cout << "established TCP\n";
         std::array<unsigned char, 128u> buffer;
 
-        for (;;) {    
+        for (;;) {
             auto size = 0u;
             for (;;) {
                 const uint8_t *data = nullptr;

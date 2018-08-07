@@ -1,6 +1,5 @@
 ﻿#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-#include <nghttp2/nghttp2.h>
 #include <boost/asio.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -12,44 +11,13 @@
 #include <memory>
 #include <cassert>
 #include <array>
+#include "common.hh"
 
 enum class ops {on_send, on_recv, on_close, on_data_chunk_recv};
 using nghttp2_blob = std::tuple<int32_t, const uint8_t *, size_t>;
 using nghttp2_internal_data = std::variant<const nghttp2_frame*, int32_t, nghttp2_blob>;
 
 static nghttp2_session *session = nullptr;
-static auto debug = true;
-
-static auto dump_frame_type(nghttp2_frame_type frame_type,
-                     const char *direction = "<----------------------------") {
-    if (!debug)
-        return;
-    switch(frame_type) {
-    case NGHTTP2_RST_STREAM:
-        std::cout << "[INFO] C " << direction << " S (RST_STREAM)\n";
-        break;
-    case NGHTTP2_SETTINGS:
-        std::cout << "[INFO] C " << direction << " S (SETTINGS)\n";
-        break;
-    case NGHTTP2_HEADERS:
-        std::cout << "[INFO] C " << direction << " S (HEADERS)\n";
-        break;
-    case NGHTTP2_WINDOW_UPDATE:
-        std::cout << "[INFO] C " << direction << " S (WIN_UPDATE)\n";
-        break;
-    case  NGHTTP2_DATA:
-        std::cout << "[INFO] C " << direction << " S (DATA)\n";
-        break;
-    case NGHTTP2_GOAWAY:
-        std::cout << "[INFO] C " << direction << " S (GOAWAY)\n";
-        break;
-    case NGHTTP2_PUSH_PROMISE:
-        std::cout << "[INFO] C " << direction << " S (PUSH_PROMISE)\n";
-        break;
-    default:
-        break;
-    }
-}
 
 static auto run_asio_server() {
     using boost::asio::ip::tcp;
@@ -143,8 +111,8 @@ static auto run() {
     }
 }
 
-int main()
-{
+int main(int ac, char** av) {
+    init_debug(ac, av);
     run();
     return 0;
 }
