@@ -99,10 +99,20 @@ static auto run() {
             return consume_frame<ops::on_close>(stream_id);
         });
 
+    nghttp2_session_callbacks_set_error_callback2(callbacks,
+         [](nghttp2_session *, int lib_error_code, const char *msg, size_t, void *){
+            std::cout << "error: "<< lib_error_code << " " << msg << std::endl;
+            return static_cast<int>(NGHTTP2_ERR_CALLBACK_FAILURE);
+        });
+
     rv = nghttp2_session_server_new(&session, callbacks, nullptr);
     nghttp2_session_callbacks_del(callbacks);
     assert (rv == 0 && session);
-    rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, nullptr, 0);
+    //rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, nullptr, 0);
+    // TO DO: it doesn't help
+    nghttp2_settings_entry ent{NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, 100};
+    rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, &ent, 1);
+
     assert(rv == 0);
     try {
         run_asio_server();

@@ -6,10 +6,11 @@
 #include <iostream>
 #include "common.hh"
 
-// TO DO: error callback2?
-
-// TO DO1: async Boost.Asio based on corutines OR boost asio (blocking) + Executor proposal?
-// TO DO2: run_asio_client may be simplified by buffer removal
+// TO DO 1: why no RST_STREAM in any scenario??
+// TO DO 2: more illegal requests - ideas in #527
+// TO DO 3: create_idle_streams
+// TO DO 4: tests/nghttp2_session_test.c - options + more advanced API usage
+// To DO 5: memory usage #1035 ?
 
 enum class ops {on_send, on_recv, on_close, on_data_chunk_recv};
 using nghttp2_blob = std::tuple<int32_t, const uint8_t *, size_t>;
@@ -17,7 +18,6 @@ using nghttp2_internal_data = std::variant<const nghttp2_frame*, int32_t, nghttp
 using request = std::tuple<const char*, const char*, const char*, const char*, const char*, const char*>;
 
 static nghttp2_session *session = nullptr;
-constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
 static auto done = false;
 
 static auto run_asio_client() {
@@ -54,7 +54,8 @@ static auto run_asio_client() {
             auto recieved_bytes = socket.read_some(boost::asio::buffer(buffer), error);
             assert(!error);
             auto rc = nghttp2_session_mem_recv(session, &buffer[0], recieved_bytes);
-            assert(rc >= 0);
+            // TO DO: server should send SETTINGS ACK for client ACK even in ok case!
+            //assert(rc >= 0);
         }
     }
     catch (std::exception &)
@@ -94,6 +95,114 @@ static nghttp2_nv make_header(const char (&name)[size], const char *value) {
                 NGHTTP2_NV_FLAG_NO_COPY_NAME};
 }
 
+namespace reqs {
+static auto req_3() {
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 3> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_4() {
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 4> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_5() {
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 5> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("accept", std::get<4>(headers)),
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_malformed_method() {
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 6> nva = {make_header("method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("accept", std::get<4>(headers)),
+                                     make_header("user-agent", std::get<5>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_bad_order() {
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 6> nva = {make_header("accept", std::get<4>(headers)),
+                                    make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("user-agent", std::get<5>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_ok() {
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 6> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("accept", std::get<4>(headers)),
+                                     make_header("user-agent", std::get<5>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_malformed_method_value() {
+    constexpr request headers = {"blabla", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 6> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("accept", std::get<4>(headers)),
+                                     make_header("user-agent", std::get<5>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+
+static auto req_malformed_accept_value() {
+    constexpr request headers = {"blabla", "/get", "https", "127.0.0.1:3000", "er9t34j89t", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 6> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("accept", std::get<4>(headers)),
+                                     make_header("user-agent", std::get<5>(headers))
+                                    };
+
+    return nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+}
+}
+
 static auto run() {
     nghttp2_session_callbacks *callbacks;
     auto rv = nghttp2_session_callbacks_new(&callbacks);
@@ -119,23 +228,20 @@ static auto run() {
             return consume_frame<ops::on_data_chunk_recv>(std::make_tuple(stream_id, data, len));
         });
 
+    nghttp2_session_callbacks_set_error_callback2(callbacks,
+         [](nghttp2_session *, int lib_error_code, const char *msg, size_t, void *){
+            std::cout << "error: "<< lib_error_code << " " << msg << std::endl;
+            return static_cast<int>(NGHTTP2_ERR_CALLBACK_FAILURE);
+        });
+
     rv = nghttp2_session_client_new(&session, callbacks, nullptr);
     nghttp2_session_callbacks_del(callbacks);
     assert (rv == 0 && session);
     rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, nullptr, 0);
     assert(rv == 0);
 
-    std::array<nghttp2_nv, 6> nva = {make_header(":method", std::get<0>(headers)),
-                                     make_header(":path", std::get<1>(headers)),
-                                     make_header(":scheme", std::get<2>(headers)),
-                                     make_header(":authority", std::get<3>(headers)),
-                                     make_header("accept", std::get<4>(headers)),
-                                     make_header("user-agent", std::get<5>(headers))
-                                    };
-
-    auto stream_id = nghttp2_submit_request(session, nullptr, nva.data(),
-                                       nva.size(), nullptr, nullptr);
-    assert(stream_id >= 0);
+    assert(reqs::req_ok() >= 0);
+    assert(reqs::req_ok() >= 0);
 
     run_asio_client();
     nghttp2_session_del(session);
