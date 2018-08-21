@@ -5,12 +5,8 @@
 #include <array>
 #include <iostream>
 #include "common.hh"
-//#include <lib/nghttp2_session.h>
-#include <lib/nghttp2_callbacks.h>
-//#include <lib/nghttp2_frame.h>
 
-// TO DO1: async Boost.Asio based on corutines OR boost asio (blocking) + Executor proposal?
-// TO DO2: run_asio_client may be simplified by buffer removal
+// TO DO: run_asio_client may be simplified by buffer removal
 
 enum class ops {on_send, on_recv, on_close, on_data_chunk_recv};
 using nghttp2_blob = std::tuple<int32_t, const uint8_t *, size_t>;
@@ -95,151 +91,6 @@ static nghttp2_nv make_header(const char (&name)[size], const char *value) {
                 NGHTTP2_NV_FLAG_NO_COPY_NAME};
 }
 
-namespace tests_no_io {
-
-static auto test_nghttp2_session_recv_eof() {
-    nghttp2_session_callbacks callbacks = {};
-    callbacks.send_callback = (auto, auto, auto len, auto, auto) {
-        return static_cast<ssize_t>(len);
-    };
-    callbacks.recv_callback = (auto, auto, auto, auto, auto) {
-        return NGHTTP2_ERR_EOF;
-    };
-
-    nghttp2_session *session;
-    nghttp2_session_client_new(&session, &callbacks, nullptr);
-    // trigger callbacks
-    assert(NGHTTP2_ERR_EOF == nghttp2_session_recv(session));
-    nghttp2_session_del(session);
-}
-
-static auto test_nghttp2_session_recv_too_large_frame_length() {
-
-    nghttp2_frame_hd hd;
-    nghttp2_frame_hd_init(&hd, NGHTTP2_MAX_FRAME_SIZE_MIN + 1, NGHTTP2_HEADERS,
-                          NGHTTP2_FLAG_NONE, 1);
-
-    nghttp2_session *session;
-    nghttp2_session_callbacks callbacks = {};
-    // no callbacks
-    nghttp2_session_server_new(&session, &callbacks, nullptr);
-
-    uint8_t buf[NGHTTP2_FRAME_HDLEN];
-    // apply hpack to max_frame+1
-    nghttp2_frame_pack_frame_hd(buf, &hd);
-    // pass hpack frame to nghttp2
-    assert(sizeof(buf) == nghttp2_session_mem_recv(session, buf, sizeof(buf)));
-    // take generated response frame
-    nghttp2_outbound_item *item = nghttp2_session_get_next_ob_item(session);
-
-    assert(item != nullptr);
-    assert(NGHTTP2_GOAWAY == item->frame.hd.type);
-
-    nghttp2_session_del(session);
-}
-
-struct h2data {
-    int frame_recv_cb_called {0};
-    int invalid_frame_recv_cb_called {0};
-    uint8_t recv_frame_type;
-    nghttp2_frame_hd recv_frame_hd;
-};
-
-static auto test_nghttp2_session_recv_unknown_frame() {
-
-    uint8_t data[16384];
-    nghttp2_frame_hd hd;
-    nghttp2_frame_hd_init(&hd, 16000, 99, NGHTTP2_FLAG_NONE, 0);
-    nghttp2_frame_pack_frame_hd(data, &hd);
-    auto datalen = NGHTTP2_FRAME_HDLEN + hd.length;
-
-    nghttp2_session_callbacks callbacks;
-    callbacks.on_frame_recv_callback = (auto, auto frame, auto user_data){
-            auto ud = reinterpret_cast<h2data*>(user_data);
-            ++ud->frame_recv_cb_called;
-            ud->recv_frame_type = frame->hd.type;
-            ud->recv_frame_hd = frame->hd;
-            return 0;
-    };
-
-    nghttp2_session *session;
-    h2data ud;
-    nghttp2_session_server_new(&session, &callbacks, &ud);
-
-    // Unknown frame must be ignored
-    auto rv = nghttp2_session_mem_recv(session, data, datalen);
-    assert(rv == (ssize_t)datalen);
-    assert(0 == ud.frame_recv_cb_called);
-    assert(nullptr == nghttp2_session_get_next_ob_item(session));
-
-    nghttp2_session_del(session);
-}
-
-// TO DO: ...
-static auto test_nghttp2_session_on_goaway_received() {
-
-    nghttp2_session_callbacks callbacks = {};
-    callbacks.on_frame_recv_callback = (auto, auto frame, auto user_data){
-            auto ud = reinterpret_cast<h2data*>(user_data);
-            ++ud->frame_recv_cb_called;
-            ud->recv_frame_type = frame->hd.type;
-            ud->recv_frame_hd = frame->hd;
-            return 0;
-    };
-    callbacks.on_invalid_frame_recv_callback = (auto, auto, auto, auto user_data){
-            auto ud = reinterpret_cast<h2data*>(user_data);
-            ++ud->invalid_frame_recv_cb_called;
-            return 0;
-    };
-    callbacks.on_stream_close_callback = (auto, auto, auto error_code,
-                                          auto user_data){
-            auto ud = reinterpret_cast<h2data*>(user_data);
-            ++ud->stream_close_cb_called;
-            ud->stream_close_error_code = error_code;
-            return 0;
-    };
-
-    nghttp2_frame frame;
-    nghttp2_mem *mem = nghttp2_mem_default();
-    h2data user_data;
-    user_data.frame_recv_cb_called = 0;
-    user_data.invalid_frame_recv_cb_called = 0;
-
-    nghttp2_session *session;
-    nghttp2_session_client_new(&session, &callbacks, &user_data);
-
-    for (auto i = 1; i <= 7; ++i) {
-      if (nghttp2_session_is_my_stream_id(session, i)) {
-        open_sent_stream(session, i);
-      } else {
-        open_recv_stream(session, i);
-      }
-    }
-
-    nghttp2_frame_goaway_init(&frame.goaway, 3, NGHTTP2_PROTOCOL_ERROR, nullptr, 0);
-
-    user_data.stream_close_cb_called = 0;
-
-    assert(0 == nghttp2_session_on_goaway_received(session, &frame));
-
-    assert(1 == user_data.frame_recv_cb_called);
-    assert(3 == session->remote_last_stream_id);
-    /* on_stream_close should be called for 2 times (stream 5 and 7) */
-    assert(2 == user_data.stream_close_cb_called);
-
-    assert(nullptr != nghttp2_session_get_stream(session, 1));
-    assert(nullptr != nghttp2_session_get_stream(session, 2));
-    assert(nullptr != nghttp2_session_get_stream(session, 3));
-    assert(nullptr != nghttp2_session_get_stream(session, 4));
-    assert(nullptr == nghttp2_session_get_stream(session, 5));
-    assert(nullptr != nghttp2_session_get_stream(session, 6));
-    assert(nullptr == nghttp2_session_get_stream(session, 7));
-
-    nghttp2_frame_goaway_free(&frame.goaway, mem);
-    nghttp2_session_del(session);
-}
-}
-
 static auto run() {
     nghttp2_session_callbacks *callbacks;
     auto rv = nghttp2_session_callbacks_new(&callbacks);
@@ -289,7 +140,6 @@ static auto run() {
 
 int main(int ac, char** av) {
     init_debug(ac, av);
-    //run();
-    tests_no_io::test_nghttp2_session_recv_eof();
+    run();
     return 0;
 }
