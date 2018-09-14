@@ -15,6 +15,13 @@ static auto init_debug(auto ac, auto av) {
     debug = variables_map["debug"].as<bool>();
 }
 
+static auto dump_buffer(const std::string &buffer) {
+    std::cout <<  buffer.size() << " B:     ";
+    for (auto i = 0u; i < buffer.size(); i++)
+        std::cout << (unsigned char)(buffer[i]);
+    std::cout << "\n";
+}
+
 static auto dump_frame_type(nghttp2_frame_type frame_type,
                      const char *direction = "---------------------------->") {
     if (!debug)

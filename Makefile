@@ -5,17 +5,16 @@ all: CXXFLAGS = -Wall -W -Wextra -Wshadow -Wpedantic -Wformat-security -Walloca 
 #all: CXXFLAGS += -fstack-protector -fsanitize=address -fsanitize-recover=address -fsanitize=undefined -fsanitize-address-use-after-scope -fsanitize=signed-integer-overflow -fsanitize=vptr
 all: minimal_client.cc clients.cc minimal_server.cc
 	$(CC) $(CXXFLAGS) minimal_client.cc -o client $(LDFLAGS)
-	$(CC) -I/home/yurai/seastar/nghttp2 $(CXXFLAGS) clients.cc -o clients $(LDFLAGS)
 	$(CC) $(CXXFLAGS) minimal_server.cc -o server -lboost_coroutine $(LDFLAGS)
+	$(CC) -I/home/yurai/seastar/nghttp2 $(CXXFLAGS) clients.cc -o clients $(LDFLAGS)
 
 clang: CC := clang++
 clang: CXXFLAGS = -Weverything -Wno-c++98-compat -std=c++2a -g
 clang: CXXFLAGS += -fstack-protector -fsanitize=address -fsanitize-recover=address -fsanitize=undefined -fsanitize-address-use-after-scope -fsanitize=signed-integer-overflow -fsanitize=vptr
 clang: minimal_client.cc clients.cc minimal_server.cc
 	$(CC) $(CXXFLAGS) minimal_client.cc -o client $(LDFLAGS)
-	$(CC) $(CXXFLAGS) clients.cc -o clients $(LDFLAGS)
 	$(CC) $(CXXFLAGS) minimal_server.cc -o server -lboost_coroutine $(LDFLAGS)
-
+	$(CC) $(CXXFLAGS) clients.cc -o clients $(LDFLAGS)
 
 clean:
 	@- $(RM) client server clients

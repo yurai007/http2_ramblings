@@ -15,6 +15,7 @@
 // TO DO 4: tests/nghttp2_session_test.c - options + more advanced API usage
 // To DO 5: memory usage #1035 ?
 
+/*
 namespace nghttp2_internal_unit_tests {
 
 static auto test_nghttp2_session_recv_eof() {
@@ -208,7 +209,7 @@ static auto run() {
     std::cout << "ok\n";
 }
 }
-
+*/
 namespace bad_clients {
 
 enum class ops {on_send, on_recv, on_close, on_data_chunk_recv};
@@ -448,9 +449,57 @@ static auto run() {
 
 }
 
+/*
+ * callbacks must be present and at least on_frame_send callback must be set
+ * 9B SETTINGS frame may be omitted
+ */
+namespace loopback_client {
+
+static auto test() {
+    using namespace bad_clients;
+
+    nghttp2_session_callbacks *callbacks;
+    auto rv = nghttp2_session_callbacks_new(&callbacks);
+    assert(rv == 0);
+    nghttp2_session_callbacks_set_on_frame_send_callback(callbacks, [](auto, auto, auto) { return 0; });
+    rv = nghttp2_session_client_new(&session, callbacks, nullptr);
+    nghttp2_session_callbacks_del(callbacks);
+    assert (rv == 0 && session);
+    rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, nullptr, 0);
+    assert(rv == 0);
+
+    constexpr request headers = {"GET", "/get", "https", "127.0.0.1:3000", "*/*", "nghttp2/" NGHTTP2_VERSION};
+    std::array<nghttp2_nv, 6> nva = {make_header(":method", std::get<0>(headers)),
+                                     make_header(":path", std::get<1>(headers)),
+                                     make_header(":scheme", std::get<2>(headers)),
+                                     make_header(":authority", std::get<3>(headers)),
+                                     make_header("accept", std::get<4>(headers)),
+                                     make_header("user-agent", std::get<5>(headers))
+                                    };
+
+    auto stream_id = nghttp2_submit_request(session, nullptr, nva.data(),
+                                       nva.size(), nullptr, nullptr);
+    assert(stream_id >= 0);
+    auto size = 0u;
+    for (;;) {
+        const uint8_t *data = nullptr;
+        auto bytes = nghttp2_session_mem_send(session, &data);
+        assert(bytes >= 0);
+        if (bytes == 0) {
+            break;
+        } else {
+            dump_buffer(std::string(reinterpret_cast<const char*>(data), bytes));
+        }
+        size += bytes;
+    }
+    assert(size == 82);
+}
+
+}
+
 int main(int ac, char** av) {
     init_debug(ac, av);
-    nghttp2_internal_unit_tests::run();
-    bad_clients::run();
+    dummy::test();
+    //bad_clients::run();
     return 0;
 }
