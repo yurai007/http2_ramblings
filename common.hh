@@ -6,7 +6,7 @@
 
 auto inline debug = false;
 
-static auto init_debug(auto ac, auto av) {
+static auto init_debug(int ac, char** av) {
     namespace bpo = boost::program_options;
     auto desc = bpo::options_description("simple http/2");
     desc.add_options()("debug,d", bpo::value<bool>()->default_value(false), "debug");

@@ -1,6 +1,8 @@
 ﻿#include <boost/range/irange.hpp>
 #include <boost/asio.hpp>
 #include <cassert>
+#include <cstdio>
+#include <ctime>
 #include <variant>
 #include <array>
 #include <iostream>
@@ -455,6 +457,15 @@ static auto run() {
  */
 namespace loopback_client {
 
+#define TIMESPEC_NSEC(ts) ((ts)->tv_sec * 1000000000ULL + (ts)->tv_nsec)
+
+static inline uint64_t realtime_now()
+{
+    struct timespec now_ts;
+    clock_gettime(CLOCK_REALTIME, &now_ts);
+    return TIMESPEC_NSEC(&now_ts);
+}
+
 static auto test() {
     using namespace bad_clients;
 
@@ -465,6 +476,9 @@ static auto test() {
     rv = nghttp2_session_client_new(&session, callbacks, nullptr);
     nghttp2_session_callbacks_del(callbacks);
     assert (rv == 0 && session);
+//    nghttp2_settings_entry ent{NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, 1000};
+//    rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, &ent, 1);
+//    assert(rv == 0);
     rv = nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, nullptr, 0);
     assert(rv == 0);
 
@@ -477,29 +491,45 @@ static auto test() {
                                      make_header("user-agent", std::get<5>(headers))
                                     };
 
-    auto stream_id = nghttp2_submit_request(session, nullptr, nva.data(),
-                                       nva.size(), nullptr, nullptr);
-    assert(stream_id >= 0);
-    auto size = 0u;
-    for (;;) {
-        const uint8_t *data = nullptr;
-        auto bytes = nghttp2_session_mem_send(session, &data);
-        assert(bytes >= 0);
-        if (bytes == 0) {
-            break;
-        } else {
-            dump_buffer(std::string(reinterpret_cast<const char*>(data), bytes));
+    constexpr static auto iterations = 100u;
+    auto t0 = realtime_now();
+    for (auto i = 0; i < iterations; i++) {
+        auto stream_id = nghttp2_submit_request(session, nullptr, nva.data(),
+                                           nva.size(), nullptr, nullptr);
+        assert(stream_id >= 0);
+        auto size = 0u;
+        for (;;) {
+            const uint8_t *data = nullptr;
+            auto bytes = nghttp2_session_mem_send(session, &data);
+            assert(bytes >= 0);
+            if (bytes == 0) {
+                break;
+            } else if (debug) {
+                dump_buffer(std::string(reinterpret_cast<const char*>(data), bytes));
+                auto frame = &session->ob_syn.head->frame;
+                if (frame) {
+                    dump_frame_type(static_cast<nghttp2_frame_type>(frame->hd.type));
+                }
+            }
+            size += bytes;
         }
-        size += bytes;
+        assert(size == 82 || size == 19);
     }
-    assert(size == 82);
+    auto t1 = realtime_now();
+    auto time_ns = (t1 - t0)/iterations;
+    return static_cast<long long int>(time_ns);
 }
 
 }
 
 int main(int ac, char** av) {
     init_debug(ac, av);
-    dummy::test();
+    constexpr static auto iterations = 100000u;
+    auto full_time = 0LL;
+    for (auto i = 0; i < iterations; i++) {
+        full_time += loopback_client::test();
+    }
+    std::cout <<  "avg time of single deflating = " << full_time / iterations << " ns.\n";
     //bad_clients::run();
     return 0;
 }
