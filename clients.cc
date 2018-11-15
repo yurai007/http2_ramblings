@@ -491,7 +491,7 @@ static auto test() {
                                      make_header("user-agent", std::get<5>(headers))
                                     };
 
-    constexpr static auto iterations = 100u;
+    constexpr static auto iterations = 1u;
     auto t0 = realtime_now();
     for (auto i = 0; i < iterations; i++) {
         auto stream_id = nghttp2_submit_request(session, nullptr, nva.data(),
@@ -506,9 +506,11 @@ static auto test() {
                 break;
             } else if (debug) {
                 dump_buffer(std::string(reinterpret_cast<const char*>(data), bytes));
-                auto frame = &session->ob_syn.head->frame;
-                if (frame) {
-                    dump_frame_type(static_cast<nghttp2_frame_type>(frame->hd.type));
+                if (session->ob_syn.head) {
+                    auto frame = &session->ob_syn.head->frame;
+                    if (frame) {
+                        dump_frame_type(static_cast<nghttp2_frame_type>(frame->hd.type));
+                    }
                 }
             }
             size += bytes;
@@ -524,7 +526,7 @@ static auto test() {
 
 int main(int ac, char** av) {
     init_debug(ac, av);
-    constexpr static auto iterations = 100000u;
+    constexpr static auto iterations = 1u;
     auto full_time = 0LL;
     for (auto i = 0; i < iterations; i++) {
         full_time += loopback_client::test();
