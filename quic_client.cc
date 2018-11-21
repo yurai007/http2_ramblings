@@ -7,6 +7,7 @@
 #include <cassert>
 #include <tuple>
 #include <random>
+#include <iostream>
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -17,23 +18,30 @@ enum class ops {initial, recv_crypto_data, handshake_completed, do_hs_encrypt, d
                do_encrypt_pn, recv_stream_data, acked_crypto_offset, acked_stream_data_offset, stream_close, recv_retry, extend_max_stream_id};
 
 struct ngtcp2_internal_data {
-    ngtcp2_conn *conn;
-    uint64_t offset;
-    const uint8_t *data;
-    size_t datalen;
-    uint8_t *dest;
-    size_t destlen;
-    const uint8_t *plaintext;
-    size_t plaintextlen;
-    const uint8_t *ciphertext;
-    size_t ciphertextlen;
-    const uint8_t *key;
-    size_t keylen;
-    const uint8_t *nonce;
-    size_t noncelen;
-    const uint8_t *ad;
-    size_t adlen;
-    void *user_data;
+    ngtcp2_conn *conn = nullptr;
+    uint64_t stream_id = 0u;
+    const ngtcp2_pkt_hd *hd = nullptr;
+    uint16_t app_error_code = 0u;
+    uint8_t fin = 0u;
+    uint64_t offset = 0u;
+    const ngtcp2_pkt_retry *retry = nullptr;
+    const uint8_t *data = nullptr;
+    size_t datalen = 0u;
+    uint8_t *dest = nullptr;
+    size_t destlen = 0u;
+    const uint8_t *plaintext = nullptr;
+    size_t plaintextlen = 0u;
+    const uint8_t *ciphertext = nullptr;
+    size_t ciphertextlen = 0;
+    const uint8_t *key = nullptr;
+    size_t keylen = 0u;
+    const uint8_t *nonce = nullptr;
+    size_t noncelen = 0u;
+    const uint8_t *ad = nullptr;
+    size_t adlen = 0u;
+    uint64_t max_stream_id = 0u;
+    void *user_data = nullptr;
+    void *stream_user_data = nullptr;
 };
 
 class quic_session {
@@ -55,75 +63,29 @@ private:
 
         } else if constexpr (operation == ops::do_hs_encrypt) {
 
+        } else if constexpr (operation == ops::do_hs_decrypt) {
+
+        } else if constexpr (operation == ops::do_encrypt) {
+
+        } else if constexpr (operation == ops::do_decrypt) {
+
+        } else if constexpr (operation == ops::do_hs_encrypt_pn) {
+
+        } else if constexpr (operation == ops::do_encrypt_pn) {
+
+        } else if constexpr (operation == ops::recv_stream_data) {
+
+        } else if constexpr (operation == ops::acked_crypto_offset) {
+
+        } else if constexpr (operation == ops::acked_stream_data_offset) {
+
+        } else if constexpr (operation == ops::stream_close) {
+
+        } else if constexpr (operation == ops::recv_retry) {
+
+        } else if constexpr (operation == ops::extend_max_stream_id) {
+
         }
-        return 0;
-    }
-
-    static ssize_t do_hs_decrypt(ngtcp2_conn *conn, uint8_t *dest, size_t destlen,
-                          const uint8_t *ciphertext, size_t ciphertextlen,
-                          const uint8_t *key, size_t keylen, const uint8_t *nonce,
-                          size_t noncelen, const uint8_t *ad, size_t adlen,
-                          void *user_data) {
-        return 0;
-    }
-
-    static ssize_t do_encrypt(ngtcp2_conn *conn, uint8_t *dest, size_t destlen,
-                       const uint8_t *plaintext, size_t plaintextlen,
-                       const uint8_t *key, size_t keylen, const uint8_t *nonce,
-                       size_t noncelen, const uint8_t *ad, size_t adlen,
-                       void *user_data) {
-        return 0;
-    }
-
-    static ssize_t do_decrypt(ngtcp2_conn *conn, uint8_t *dest, size_t destlen,
-                       const uint8_t *ciphertext, size_t ciphertextlen,
-                       const uint8_t *key, size_t keylen, const uint8_t *nonce,
-                       size_t noncelen, const uint8_t *ad, size_t adlen,
-                       void *user_data) {
-        return 0;
-    }
-
-    static ssize_t do_hs_encrypt_pn(ngtcp2_conn *conn, uint8_t *dest, size_t destlen,
-                             const uint8_t *plaintext, size_t plaintextlen,
-                             const uint8_t *key, size_t keylen,
-                             const uint8_t *nonce, size_t noncelen,
-                             void *user_data) {
-        return 0;
-    }
-
-    static ssize_t do_encrypt_pn(ngtcp2_conn *conn, uint8_t *dest, size_t destlen,
-                          const uint8_t *plaintext, size_t plaintextlen,
-                          const uint8_t *key, size_t keylen, const uint8_t *nonce,
-                          size_t noncelen, void *user_data) {
-        return 0;
-    }
-
-    static int recv_stream_data(ngtcp2_conn *conn, uint64_t stream_id, uint8_t fin,
-                         uint64_t offset, const uint8_t *data, size_t datalen,
-                         void *user_data, void *stream_user_data) {
-        return 0;
-    }
-
-    static int acked_crypto_offset(ngtcp2_conn *conn, uint64_t offset, size_t datalen, void *user_data) {
-        return 0;
-    }
-
-    static int acked_stream_data_offset(ngtcp2_conn *conn, uint64_t stream_id,
-                                 uint64_t offset, size_t datalen, void *user_data,
-                                 void *stream_user_data) {
-        return 0;
-    }
-
-    static int stream_close(ngtcp2_conn *conn, uint64_t stream_id, uint16_t app_error_code,
-                     void *user_data, void *stream_user_data) {
-        return 0;
-    }
-
-    static int recv_retry(ngtcp2_conn *conn, const ngtcp2_pkt_hd *hd, const ngtcp2_pkt_retry *retry, void *user_data) {
-        return 0;
-    }
-
-    static int extend_max_stream_id(ngtcp2_conn *conn, uint64_t max_stream_id, void *user_data) {
         return 0;
     }
 
@@ -134,57 +96,91 @@ public:
     void run() {
         auto callbacks = ngtcp2_conn_callbacks{
                 [](auto conn, auto user_data){
-                    ngtcp2_internal_data blob {};
-                    blob.conn = conn;
-                    blob.user_data = user_data;
+                    ngtcp2_internal_data blob { .conn = conn, .user_data = user_data};
                     return consume<ops::initial>(std::move(blob));
                 },
             nullptr,
                 [](auto conn, auto offset, auto data, auto datalen, auto user_data) {
-                    ngtcp2_internal_data blob {};
-                    blob.conn = conn;
-                    blob.offset = offset;
-                    blob.data = data;
-                    blob.datalen = datalen;
-                    blob.user_data = user_data;
+                    ngtcp2_internal_data blob { .conn = conn, .offset = offset, .data = data, .datalen = datalen, .user_data = user_data};
                     return consume<ops::recv_crypto_data>(std::move(blob));
                 },
                 [](auto conn, auto user_data){
-                    ngtcp2_internal_data blob {};
-                    blob.conn = conn;
-                    blob.user_data = user_data;
+                    ngtcp2_internal_data blob { .conn = conn, .user_data = user_data};
                     return consume<ops::handshake_completed>(std::move(blob));
                 },
             nullptr,
                 [](auto conn, auto dest, auto destlen, auto plaintext, auto plaintextlen,
                    auto key, auto keylen, auto nonce, auto noncelen, auto ad, auto adlen, auto user_data) {
-                    ngtcp2_internal_data blob {};
-                    blob.conn = conn;
-                    blob.dest = dest;
-                    blob.destlen = destlen;
-                    blob.plaintext = plaintext;
-                    blob.plaintextlen = plaintextlen;
-                    blob.key = key;
-                    blob.keylen = keylen;
-                    blob.nonce = nonce;
-                    blob.noncelen = noncelen;
-                    blob.ad = ad;
-                    blob.adlen = adlen;
-                    blob.user_data = user_data;
+                    ngtcp2_internal_data blob { .conn = conn, .dest = dest, .destlen = destlen, .plaintext = plaintext,
+                        .plaintextlen = plaintextlen, .key = key, .keylen = keylen, .nonce = nonce, .noncelen = noncelen, .ad = ad,
+                        .adlen = adlen, .user_data = user_data};
                     return static_cast<ssize_t>(consume<ops::do_hs_encrypt>(std::move(blob)));
                 },
-            do_hs_decrypt,        do_encrypt,
-            do_decrypt,       do_hs_encrypt_pn,     do_encrypt_pn,
-            recv_stream_data, acked_crypto_offset,  acked_stream_data_offset,
-            stream_close,
+                [](auto conn, auto dest, auto destlen, auto ciphertext, auto ciphertextlen,
+                   auto key, auto keylen, auto nonce, auto noncelen, auto ad, auto adlen, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .dest = dest, .destlen = destlen, .ciphertext = ciphertext,
+                        .ciphertextlen = ciphertextlen, .key = key, .keylen = keylen, .nonce = nonce, .noncelen = noncelen, .ad = ad,
+                        .adlen = adlen, .user_data = user_data};
+                    return static_cast<ssize_t>(consume<ops::do_hs_decrypt>(std::move(blob)));
+                },
+                [](auto conn, auto dest, auto destlen, auto plaintext, auto plaintextlen,
+                   auto key, auto keylen, auto nonce, auto noncelen, auto ad, auto adlen, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .dest = dest, .destlen = destlen, .plaintext = plaintext,
+                        .plaintextlen = plaintextlen, .key = key, .keylen = keylen, .nonce = nonce, .noncelen = noncelen, .ad = ad,
+                        .adlen = adlen, .user_data = user_data};
+                    return static_cast<ssize_t>(consume<ops::do_encrypt>(std::move(blob)));
+                },
+                [](auto conn, auto dest, auto destlen, auto ciphertext, auto ciphertextlen,
+                   auto key, auto keylen, auto nonce, auto noncelen, auto ad, auto adlen, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .dest = dest, .destlen = destlen, .ciphertext = ciphertext,
+                        .ciphertextlen = ciphertextlen, .key = key, .keylen = keylen, .nonce = nonce, .noncelen = noncelen, .ad = ad,
+                        .adlen = adlen, .user_data = user_data};
+                    return static_cast<ssize_t>(consume<ops::do_decrypt>(std::move(blob)));
+                },
+                [](auto conn, auto dest, auto destlen, auto plaintext, auto plaintextlen,
+                   auto key, auto keylen, auto nonce, auto noncelen, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .dest = dest, .destlen = destlen, .plaintext = plaintext,
+                        .plaintextlen = plaintextlen, .key = key, .keylen = keylen, .nonce = nonce, .noncelen = noncelen, .user_data = user_data};
+                    return static_cast<ssize_t>(consume<ops::do_hs_encrypt_pn>(std::move(blob)));
+                },
+                [](auto conn, auto dest, auto destlen, auto plaintext, auto plaintextlen,
+                   auto key, auto keylen, auto nonce, auto noncelen, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .dest = dest, .destlen = destlen, .plaintext = plaintext,
+                        .plaintextlen = plaintextlen, .key = key, .keylen = keylen, .nonce = nonce, .noncelen = noncelen, .user_data = user_data};
+                    return static_cast<ssize_t>(consume<ops::do_encrypt_pn>(std::move(blob)));
+                },
+                [](auto conn, auto stream_id, auto fin, auto offset, auto data, auto datalen, auto user_data, auto stream_user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .stream_id = stream_id, .fin = fin, .offset = offset, .data = data, .datalen = datalen,
+                        .user_data = user_data, .stream_user_data = stream_user_data};
+                    return consume<ops::recv_stream_data>(std::move(blob));
+                },
+                [](auto conn, auto offset, auto datalen, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .offset = offset, .datalen = datalen, .user_data = user_data};
+                    return consume<ops::acked_crypto_offset>(std::move(blob));
+                },
+                [](auto conn, auto stream_id, auto offset, auto datalen, auto user_data, auto stream_user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .stream_id = stream_id, .offset = offset, .datalen = datalen,
+                                .user_data = user_data, .stream_user_data = stream_user_data};
+                    return consume<ops::acked_stream_data_offset>(std::move(blob));
+                },
+                [](auto conn, auto stream_id, auto app_error_code, auto user_data, auto stream_user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .stream_id = stream_id, .app_error_code = app_error_code,
+                                .user_data = user_data, .stream_user_data = stream_user_data};
+                    return consume<ops::stream_close>(std::move(blob));
+                },
             nullptr,
-            recv_retry, extend_max_stream_id,
+                [](auto conn, auto hd, auto retry, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .hd = hd, .retry = retry, .user_data = user_data};
+                    return consume<ops::recv_retry>(std::move(blob));
+                },
+                [](auto conn, auto max_stream_id, auto user_data) {
+                    ngtcp2_internal_data blob { .conn = conn, .max_stream_id = max_stream_id, .user_data = user_data};
+                    return consume<ops::extend_max_stream_id>(std::move(blob));
+                }
         };
 
-        auto randgen = []() {
-            std::random_device rd;
-            return std::mt19937(rd());
-        };
+        std::random_device rd;
+        std::mt19937 randgen{rd()};
         auto dis = std::uniform_int_distribution<uint8_t>(0, std::numeric_limits<uint8_t>::max());
 
         ngtcp2_cid scid;
@@ -214,10 +210,32 @@ public:
 };
 
 static auto run_ssl_client() {
-    using ssl_socket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
-    boost::asio::io_service io_service;
-    boost::asio::ssl::context context {boost::asio::ssl::context::sslv23};
-    ssl_socket socket{io_service, context};
+    try {
+        using ssl_socket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+        boost::asio::io_service io_service;
+        boost::asio::ip::tcp::resolver resolver {io_service};
+        boost::system::error_code error = boost::asio::error::host_not_found;
+        auto iterator = resolver.resolve(boost::asio::ip::tcp::resolver::query("127.0.0.1", "5555",
+                                                boost::asio::ip::tcp::resolver::query::canonical_name));
+
+        boost::asio::ssl::context context {boost::asio::ssl::context::sslv23};
+        context.load_verify_file("server.crt");
+        ssl_socket socket{io_service, context};
+        boost::asio::connect(socket.lowest_layer(), iterator, error);
+        assert(!error);
+
+        socket.set_verify_mode(boost::asio::ssl::verify_peer);
+        socket.set_verify_callback([](auto preverified, auto &ctx){
+            std::array<char, 256> subject_name;
+            auto cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+            X509_NAME_oneline(X509_get_subject_name(cert), subject_name.data(), subject_name.size());
+            std::cout << "Verifying " << subject_name.data() << "\n";
+            return preverified;
+        });
+    }
+    catch (std::exception& e) {
+        std::cout << "Exception: " << e.what() << "\n";
+    }
 }
 
 static auto run() {
@@ -227,6 +245,6 @@ static auto run() {
 }
 
 int main() {
-    minimal_client::run();
+    minimal_client::run_ssl_client();
     return 0;
 }
