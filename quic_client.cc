@@ -223,6 +223,7 @@ static auto run_ssl_client() {
         ssl_socket socket{io_service, context};
         boost::asio::connect(socket.lowest_layer(), iterator, error);
         assert(!error);
+        std::cout << "connected on TLS\n";
 
         socket.set_verify_mode(boost::asio::ssl::verify_peer);
         socket.set_verify_callback([](auto preverified, auto &ctx){
@@ -245,6 +246,7 @@ static auto run() {
 }
 
 int main() {
+    minimal_client::run();
     minimal_client::run_ssl_client();
     return 0;
 }
