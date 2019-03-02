@@ -30,11 +30,11 @@ public:
     }
 
     void start_accept() {
-        session_ = std::make_shared<quic_session>(io_service_, context_);
-        acceptor_.async_accept(session_->socket(),
+        sessions_.emplace_back(std::make_shared<quic_session>(io_service_, context_));
+        acceptor_.async_accept(sessions_.back()->socket(),
                                [this](auto error){
             if (!error) {
-                session_->start();
+                sessions_.back()->start();
             }
             this->start_accept();
         });
@@ -45,7 +45,7 @@ public:
     }
 
 private:
-    class quic_session : public std::enable_shared_from_this<quic_session> {
+    class quic_session {
         template<ops operation>
         static auto consume(ngtcp2_internal_data && data) {
             if constexpr (operation == ops::recv_client_initial) {
@@ -247,7 +247,7 @@ private:
     boost::asio::io_service io_service_;
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::asio::ssl::context context_;
-    std::shared_ptr<quic_session> session_;
+    std::vector<std::shared_ptr<quic_session>> sessions_;
 };
 
 static auto run_ssl_server() {
