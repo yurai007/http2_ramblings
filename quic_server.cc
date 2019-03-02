@@ -29,15 +29,11 @@ public:
         start_accept();
     }
 
-    void start_accept() {
+    std::future<void> start_accept() {
         sessions_.emplace_back(std::make_shared<quic_session>(io_service_, context_));
-        acceptor_.async_accept(sessions_.back()->socket(),
-                               [this](auto error){
-            if (!error) {
-                sessions_.back()->start();
-            }
-            this->start_accept();
-        });
+        co_await coroutines::async_accept(acceptor_, sessions_.back()->socket());
+        sessions_.back()->start();
+        start_accept();
     }
 
     void run() {
@@ -89,28 +85,17 @@ private:
         explicit quic_session(boost::asio::io_service& io_service, boost::asio::ssl::context& context)
             : socket_(io_service, context) {}
 
-        void process(const boost::system::error_code& error) {
-            if (!error) {
-                socket_.async_read_some(boost::asio::buffer(buffer_, 1024u),
-                                        [this](auto error, auto bytes_transferred){
-                    if (!error) {
-                        boost::asio::async_write(socket_,
-                                                 boost::asio::buffer(buffer_, bytes_transferred),
-                                                 [this](auto error, auto){
-                            process(error);
-                        });
-                    }
-                });
-            }
+        std::future<void> process() {
+            auto bytes = co_await coroutines::async_read_some(socket_, boost::asio::buffer(buffer_, 1024u));
+            auto n = co_await coroutines::async_write(socket_, boost::asio::buffer(buffer_, bytes));
+            process();
         }
 
-        void start() {
+        std::future<void> start() {
             std::cout << "accepted TLS\n";
-            socket_.async_handshake(boost::asio::ssl::stream_base::server,
-                                    [this](auto error){
-                        this->run();
-                        this->process(error);
-            });
+            co_await coroutines::async_handshake(socket_);
+            run();
+            process();
         }
 
         void run() {
