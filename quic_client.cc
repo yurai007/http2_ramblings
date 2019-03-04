@@ -61,8 +61,14 @@ private:
         return 0;
     }
 
+    std::array<char, 1024u> buffer_;
     ngtcp2_conn *quic_connection = nullptr;
     constexpr static auto max_pktlen = NGTCP2_MAX_PKTLEN_IPV4;
+    size_t max_pktlen_ = 0u;
+
+    ngtcp2_tstamp timestamp() {
+        return 0u;
+    }
 
 public:
     void run() {
@@ -179,6 +185,29 @@ public:
         auto rv = ngtcp2_conn_client_new(&quic_connection, &dcid, &scid, version, &callbacks, &settings, this);
         assert(rv == 0);
     }
+
+    // write sketch at ngtcp2 level
+    void write(size_t bytes, bool retransmit) {
+        if (retransmit) {
+            auto rv = ngtcp2_conn_on_loss_detection_timer(quic_connection, timestamp());
+            assert(rv == 0);
+        }
+        assert(ngtcp2_conn_get_handshake_completed(quic_connection));
+        for (;;) {
+            auto n = ngtcp2_conn_write_pkt(quic_connection, reinterpret_cast<uint8_t*>(buffer_.data()), max_pktlen_, timestamp());
+            assert(n >= 0);
+            if (n == 0) {
+                break;
+            }
+        }
+        // trigger Asio here
+    }
+
+    void read(size_t to_read) {
+        assert(ngtcp2_conn_get_handshake_completed(quic_connection));
+        auto rv = ngtcp2_conn_recv(quic_connection, reinterpret_cast<uint8_t*>(buffer_.data()), to_read, timestamp());
+        assert(rv == 0);
+    }
 };
 
 static auto run_ssl_client() {
@@ -217,7 +246,7 @@ static auto run() {
 
 }
 
-int main() {
+int main(int ac, char** av) {
     minimal_client::run();
     minimal_client::run_ssl_client();
     return 0;
